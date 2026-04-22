@@ -81,9 +81,8 @@ class SupervisedDataset(Dataset):
             path,
             split=split,
             data_files=data_files,
-            subset=subset,
+            name=subset,
             *optional_args,
-            trust_remote_code=True,
         )
         if size:
             self.raw_data = self.raw_data.select(range(int(size)))
