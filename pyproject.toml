@@ -48,6 +48,7 @@ dependencies = [
     "gradio",
     "librosa",
     "soundfile",
+    "mpi4py",
 ]
 
 dynamic = ["version"]
