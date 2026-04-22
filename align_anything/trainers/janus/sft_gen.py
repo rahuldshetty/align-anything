@@ -94,7 +94,7 @@ class SuperviseTrainer(SupervisedtextTrainer):
         # mark_tied_weights_as_initialized() can call .keys() on it.
         if not hasattr(MultiModalityCausalLM, 'all_tied_weights_keys'):
             MultiModalityCausalLM.all_tied_weights_keys = property(
-                lambda self: {k: None for k in getattr(self, '_tied_weights_keys', [])}
+                lambda self: {k: None for k in (getattr(self, '_tied_weights_keys', None) or [])}
             )
 
         torch.linspace = _cpu_linspace
