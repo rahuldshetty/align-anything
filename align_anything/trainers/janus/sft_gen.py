@@ -60,11 +60,16 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
     def init_models(self) -> None:
         """Initialize model and tokenizer."""
+        # Load on CPU first with low_cpu_mem_usage=False to avoid meta-tensor
+        # initialization, which causes `Tensor.item() cannot be called on meta
+        # tensors` inside siglip_vit.py during __init__.
+        dtype = torch.bfloat16 if self.cfgs.train_cfgs.bf16 else torch.float32
         self.model = MultiModalityCausalLM.from_pretrained(
             self.cfgs.model_cfgs.model_name_or_path,
-        ).to(get_current_device())
-        if self.cfgs.train_cfgs.bf16:
-            self.model = self.model.to(torch.bfloat16)
+            low_cpu_mem_usage=False,
+            torch_dtype=dtype,
+        )
+        self.model = self.model.to(get_current_device())
 
         self.processor = VLChatProcessor.from_pretrained(
             self.cfgs.model_cfgs.model_name_or_path,
