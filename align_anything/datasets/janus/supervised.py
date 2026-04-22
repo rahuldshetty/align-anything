@@ -21,7 +21,7 @@ import torch
 import transformers
 from torch.utils.data import Dataset
 from torchvision import transforms
-from transformers.utils import PaddingStrategy, TruncationStrategy
+from transformers.tokenization_utils_base import PaddingStrategy, TruncationStrategy
 
 from align_anything.utils.multi_process import get_current_device
 from align_anything.utils.tools import right_padding, convert_to_rgb, ends_with_any
