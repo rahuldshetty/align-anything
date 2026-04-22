@@ -37,7 +37,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.types import Number
 from transformers import PreTrainedTokenizerBase, ProcessorMixin
 from transformers.image_utils import ImageInput
-from transformers.tokenization_utils import BatchEncoding, PaddingStrategy, TruncationStrategy
+from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, TruncationStrategy
 from transformers.utils.import_utils import requires_backends
 
 from align_anything.utils.device_utils import manual_seed_all
