@@ -462,6 +462,41 @@ class Janus_TI2T(BaseFormatter):
 
         return better_conversation, worse_conversation, meta_info
 
+
+@register_template('Janus_Seg')
+class Janus_Seg(BaseFormatter):
+    """Template for image-conditioned segmentation generation.
+
+    Expects JSONL rows with:
+        - ``prompt``       : text instruction (e.g. "segment building in image")
+        - ``input_image``  : path to the conditioning satellite image (RGB)
+        - ``image``        : path to the target binary segmentation mask (output)
+
+    The conditioning ``input_image`` is passed to the Janus processor so the
+    language model can see it, while ``image`` (the mask) is stored in
+    ``meta_info`` for the generation head loss.
+    """
+
+    def format_supervised_sample(
+        self, raw_sample: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        prompt = raw_sample['prompt']
+        # Load the RGB satellite image used as visual input to the model
+        input_image = load_image(raw_sample['input_image']).convert('RGB')
+        # Load the target mask that the generation head should reproduce
+        target_image = load_image(raw_sample['image']).convert('RGB')
+
+        return [
+            {
+                'role': 'user',
+                'content': prompt,
+            },
+            # The assistant "response" is a placeholder; for generation tasks
+            # the actual supervision signal comes from the target image tokens.
+            {'role': 'assistant', 'content': ''},
+        ], {'image': input_image, 'target_image': target_image}
+
+
 @register_template('AA_TI2T')
 class AA_TI2T(BaseFormatter):
     system_prompt: str = ''

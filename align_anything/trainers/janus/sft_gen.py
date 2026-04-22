@@ -45,8 +45,9 @@ class SuperviseTrainer(SupervisedtextTrainer):
     def init_datasets(self) -> None:
         """Initialize training and evaluation datasets."""
         self.train_dataloader, self.eval_dataloader = self.get_dataloaders(
-            SupervisedTokenizedDataset, SupervisedTokenizedDataset
-        ) # change to SupervisedTokenizedDataset, SupervisedTokenizedDataset in case of image input
+            SupervisedDataset, SupervisedDataset
+        )
+
 
     def update_configs(self, model_config, args, fields):
         cross_update = lambda a, b, field_name: (
