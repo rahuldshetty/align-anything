@@ -68,21 +68,36 @@ class SuperviseTrainer(SupervisedtextTrainer):
         #   RuntimeError: Tensor.item() cannot be called on meta tensors
         # Fix: temporarily force torch.linspace to always produce CPU tensors
         # so .item() succeeds, then restore the original after loading.
+        # Patch 1 — siglip_vit meta-tensor fix (see above).
         _original_linspace = torch.linspace
 
         def _cpu_linspace(*args, **kwargs):
             kwargs['device'] = 'cpu'
             return _original_linspace(*args, **kwargs)
 
+        # Patch 2 — MultiModalityCausalLM.__init__ calls super().__init__(config)
+        # without forwarding attn_implementation, so HuggingFace auto-detects and
+        # tries sdpa/flash_attn — both unsupported by this model.  Monkey-patch
+        # _check_and_adjust_attn_implementation to silently fall back to "eager".
+        import transformers.modeling_utils as _mu
+        _original_check_attn = _mu.PreTrainedModel._check_and_adjust_attn_implementation
+
+        def _eager_fallback_check(self_inner, *args, **kwargs):
+            try:
+                return _original_check_attn(self_inner, *args, **kwargs)
+            except (ImportError, ValueError):
+                return 'eager'
+
         torch.linspace = _cpu_linspace
+        _mu.PreTrainedModel._check_and_adjust_attn_implementation = _eager_fallback_check
         try:
             self.model = MultiModalityCausalLM.from_pretrained(
                 self.cfgs.model_cfgs.model_name_or_path,
                 torch_dtype=dtype,
-                attn_implementation="eager",  # flash_attn not installed; use standard attention
             )
         finally:
             torch.linspace = _original_linspace
+            _mu.PreTrainedModel._check_and_adjust_attn_implementation = _original_check_attn
 
         self.model = self.model.to(get_current_device())
 
