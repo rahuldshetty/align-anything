@@ -88,6 +88,15 @@ class SuperviseTrainer(SupervisedtextTrainer):
             except (ImportError, ValueError):
                 return 'eager'
 
+        # Patch 3 — transformers 5.x added `all_tied_weights_keys` (a dict) to
+        # PreTrainedModel, but Janus's MultiModalityCausalLM only has the old
+        # `_tied_weights_keys` (a list).  Backfill the property so that
+        # mark_tied_weights_as_initialized() can call .keys() on it.
+        if not hasattr(MultiModalityCausalLM, 'all_tied_weights_keys'):
+            MultiModalityCausalLM.all_tied_weights_keys = property(
+                lambda self: {k: None for k in getattr(self, '_tied_weights_keys', [])}
+            )
+
         torch.linspace = _cpu_linspace
         _mu.PreTrainedModel._check_and_adjust_attn_implementation = _eager_fallback_check
         try:
