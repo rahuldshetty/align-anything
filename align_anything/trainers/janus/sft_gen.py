@@ -79,6 +79,7 @@ class SuperviseTrainer(SupervisedtextTrainer):
             self.model = MultiModalityCausalLM.from_pretrained(
                 self.cfgs.model_cfgs.model_name_or_path,
                 torch_dtype=dtype,
+                attn_implementation="sdpa",  # flash_attn not installed; use standard attention
             )
         finally:
             torch.linspace = _original_linspace
