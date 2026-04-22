@@ -22,7 +22,7 @@ import transformers
 from torch.utils.data import Dataset
 from torchvision import transforms
 from transformers import LlavaNextVideoProcessor, Qwen2VLProcessor
-from transformers.tokenization_utils import PaddingStrategy, TruncationStrategy
+from transformers.tokenization_utils_base import PaddingStrategy, TruncationStrategy
 
 from align_anything.utils.multi_process import get_current_device, print_on_main_process
 from align_anything.utils.process_llava_next_video import read_video_pyav as llava_next_video_loader

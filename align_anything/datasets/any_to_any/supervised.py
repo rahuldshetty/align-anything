@@ -21,7 +21,7 @@ import transformers
 from torch.utils.data import Dataset
 from torchvision import transforms
 from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizer, ProcessorMixin
-from transformers.tokenization_utils import PaddingStrategy, TruncationStrategy
+from transformers.tokenization_utils_base import PaddingStrategy, TruncationStrategy
 
 from align_anything.utils.multi_process import get_current_device
 from datasets import load_dataset
