@@ -60,15 +60,29 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
     def init_models(self) -> None:
         """Initialize model and tokenizer."""
-        # Load on CPU first with low_cpu_mem_usage=False to avoid meta-tensor
-        # initialization, which causes `Tensor.item() cannot be called on meta
-        # tensors` inside siglip_vit.py during __init__.
         dtype = torch.bfloat16 if self.cfgs.train_cfgs.bf16 else torch.float32
-        self.model = MultiModalityCausalLM.from_pretrained(
-            self.cfgs.model_cfgs.model_name_or_path,
-            low_cpu_mem_usage=False,
-            torch_dtype=dtype,
-        )
+
+        # DeepSpeed ZeRO-3 patches model __init__ to redirect all tensor
+        # creation to the meta device. siglip_vit.VisionTransformer calls
+        # `tensor.item()` during __init__, which raises:
+        #   RuntimeError: Tensor.item() cannot be called on meta tensors
+        # Fix: temporarily force torch.linspace to always produce CPU tensors
+        # so .item() succeeds, then restore the original after loading.
+        _original_linspace = torch.linspace
+
+        def _cpu_linspace(*args, **kwargs):
+            kwargs['device'] = 'cpu'
+            return _original_linspace(*args, **kwargs)
+
+        torch.linspace = _cpu_linspace
+        try:
+            self.model = MultiModalityCausalLM.from_pretrained(
+                self.cfgs.model_cfgs.model_name_or_path,
+                torch_dtype=dtype,
+            )
+        finally:
+            torch.linspace = _original_linspace
+
         self.model = self.model.to(get_current_device())
 
         self.processor = VLChatProcessor.from_pretrained(
