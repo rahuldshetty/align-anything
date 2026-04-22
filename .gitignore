@@ -424,3 +424,5 @@ tags
 local_scripts/
 
 *.gradio/
+
+janus_segmentation_training.ipynb
