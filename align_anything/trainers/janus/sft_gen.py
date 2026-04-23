@@ -164,7 +164,17 @@ class SuperviseTrainer(SupervisedtextTrainer):
         
         # Enable gradient checkpointing for LoRA
         if self.cfgs.train_cfgs.gradient_checkpointing:
-            self.model.gradient_checkpointing_enable()
+            try:
+                self.model.gradient_checkpointing_enable()
+            except (ValueError, AttributeError) as e:
+                print(f"Warning: Model does not support standard gradient checkpointing: {e}")
+                # For Janus, we can try to enable it on the language model specifically
+                if hasattr(self.model, 'language_model'):
+                    try:
+                        self.model.language_model.gradient_checkpointing_enable()
+                        print("Gradient checkpointing enabled on the language model.")
+                    except Exception:
+                        print("Could not enable gradient checkpointing on the language model.")
 
         self.processor = VLChatProcessor.from_pretrained(
             self.cfgs.model_cfgs.model_name_or_path,
