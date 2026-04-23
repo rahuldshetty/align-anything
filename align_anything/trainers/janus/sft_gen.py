@@ -61,7 +61,12 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
     def init_models(self) -> None:
         """Initialize model and tokenizer."""
-        dtype = torch.bfloat16 if self.cfgs.train_cfgs.bf16 else torch.float32
+        if self.cfgs.train_cfgs.bf16:
+            dtype = torch.bfloat16
+        elif self.cfgs.train_cfgs.fp16:
+            dtype = torch.float16
+        else:
+            dtype = torch.float32
 
         # DeepSpeed ZeRO-3 patches model __init__ to redirect all tensor
         # creation to the meta device. siglip_vit.VisionTransformer calls
