@@ -131,13 +131,22 @@ class SuperviseTrainer(SupervisedtextTrainer):
                 task_type="CAUSAL_LM",
             )
             self.model = get_peft_model(self.model, lora_config)
-            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-            if trainable_params == 0:
-                raise ValueError("LoRA failed to find target modules! Check your target_modules config.")
+            
+            # Aggressive freeze: ensure vision and generation components are completely disabled
+            for name, module in self.model.named_modules():
+                if any(x in name for x in ['vision_model', 'aligner', 'gen_vision_model', 'gen_aligner', 'gen_head']):
+                    for param in module.parameters():
+                        param.requires_grad = False
             
             for name, param in self.model.named_parameters():
                 if 'lora' not in name:
                     param.requires_grad = False
+
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            if trainable_params == 0:
+                raise ValueError("LoRA failed to find target modules! Check your target_modules config.")
+            
+            print(f"Total trainable parameters: {trainable_params / 1e6:.2f}M")
             self.model.print_trainable_parameters()
             self.lora_enabled = True
 
