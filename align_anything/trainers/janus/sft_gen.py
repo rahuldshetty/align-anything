@@ -116,6 +116,10 @@ class SuperviseTrainer(SupervisedtextTrainer):
             **kwargs,
         ):
             if pixel_values is not None:
+                # Ensure pixel_values match the model's dtype (e.g., fp16)
+                dtype = next(self_inner.parameters()).dtype
+                pixel_values = pixel_values.to(dtype)
+
                 inputs_embeds = self_inner.prepare_inputs_embeds(
                     input_ids=input_ids,
                     pixel_values=pixel_values,
