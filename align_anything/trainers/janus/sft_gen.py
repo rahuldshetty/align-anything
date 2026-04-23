@@ -213,7 +213,8 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
         if self.ds_train_cfgs is None or self.ds_train_cfgs['zero_optimization']['stage'] != 3:
             # Force everything to the target dtype and move to device
-            self.model = self.model.to(dtype=dtype, device=get_current_device())
+            if quantization_config is None:
+                self.model = self.model.to(dtype=dtype, device=get_current_device())
             if dtype == torch.float16:
                 self.model.half()
             elif dtype == torch.bfloat16:
