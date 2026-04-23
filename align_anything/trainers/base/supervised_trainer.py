@@ -23,7 +23,7 @@ from typing import Any
 import deepspeed
 import torch
 import torch.distributed as dist
-from deepspeed.ops.adam import FusedAdam
+from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 from diffusers import StableDiffusionPipeline
 from diffusers.loaders import LoraLoaderMixin
 from diffusers.utils import convert_state_dict_to_diffusers
@@ -242,11 +242,27 @@ class SupervisedTrainerBase:
             self.model,
             self.cfgs.train_cfgs.weight_decay,
         )
-        optimizer = FusedAdam(
-            optimizer_grouped_parameters,
-            lr=self.cfgs.train_cfgs.learning_rate,
-            betas=self.cfgs.train_cfgs.adam_betas,
-        )
+        offload_optimizer = False
+        if self.ds_train_cfgs is not None:
+            offload_optimizer = (
+                self.ds_train_cfgs.get('zero_optimization', {})
+                .get('offload_optimizer', {})
+                .get('device')
+                == 'cpu'
+            )
+
+        if offload_optimizer:
+            optimizer = DeepSpeedCPUAdam(
+                optimizer_grouped_parameters,
+                lr=self.cfgs.train_cfgs.learning_rate,
+                betas=self.cfgs.train_cfgs.adam_betas,
+            )
+        else:
+            optimizer = FusedAdam(
+                optimizer_grouped_parameters,
+                lr=self.cfgs.train_cfgs.learning_rate,
+                betas=self.cfgs.train_cfgs.adam_betas,
+            )
 
         num_warmup_steps = int(self.cfgs.train_cfgs.lr_warmup_ratio * total_training_steps)
         lr_scheduler = get_scheduler(
