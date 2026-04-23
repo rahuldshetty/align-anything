@@ -103,18 +103,25 @@ class SuperviseTrainer(SupervisedtextTrainer):
                 lambda self: {k: None for k in (getattr(self, '_tied_weights_keys', None) or [])}
             )
 
+        from transformers.integrations.deepspeed import HfDeepSpeedConfig
+        if self.ds_train_cfgs is not None and self.ds_train_cfgs['zero_optimization']['stage'] == 3:
+            self.dstchf = HfDeepSpeedConfig(self.ds_train_cfgs)
+
         torch.linspace = _cpu_linspace
         _mu.PreTrainedModel._check_and_adjust_attn_implementation = _eager_fallback_check
         try:
             self.model = MultiModalityCausalLM.from_pretrained(
                 self.cfgs.model_cfgs.model_name_or_path,
                 torch_dtype=dtype,
+                trust_remote_code=self.cfgs.model_cfgs.trust_remote_code,
+                low_cpu_mem_usage=True,
             )
         finally:
             torch.linspace = _original_linspace
             _mu.PreTrainedModel._check_and_adjust_attn_implementation = _original_check_attn
 
-        self.model = self.model.to(get_current_device())
+        if self.ds_train_cfgs is None or self.ds_train_cfgs['zero_optimization']['stage'] != 3:
+            self.model = self.model.to(get_current_device())
 
         self.processor = VLChatProcessor.from_pretrained(
             self.cfgs.model_cfgs.model_name_or_path,
