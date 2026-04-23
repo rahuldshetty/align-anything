@@ -131,6 +131,10 @@ class SuperviseTrainer(SupervisedtextTrainer):
                 task_type="CAUSAL_LM",
             )
             self.model = get_peft_model(self.model, lora_config)
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            if trainable_params == 0:
+                raise ValueError("LoRA failed to find target modules! Check your target_modules config.")
+            
             for name, param in self.model.named_parameters():
                 if 'lora' not in name:
                     param.requires_grad = False
