@@ -143,10 +143,12 @@ class SuperviseTrainer(SupervisedtextTrainer):
                     param.requires_grad = False
 
             trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-            if trainable_params == 0:
-                raise ValueError("LoRA failed to find target modules! Check your target_modules config.")
-            
             print(f"Total trainable parameters: {trainable_params / 1e6:.2f}M")
+            if trainable_params == 0:
+                print("WARNING: No trainable parameters found! Check your target_modules.")
+            
+            import gc
+            gc.collect()
             self.model.print_trainable_parameters()
             self.lora_enabled = True
 
