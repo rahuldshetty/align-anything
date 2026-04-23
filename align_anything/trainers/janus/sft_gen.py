@@ -138,6 +138,18 @@ class SuperviseTrainer(SupervisedtextTrainer):
         
         MultiModalityCausalLM.forward = _forward
 
+        # Initialize BitsAndBytes configuration for QLoRA if requested
+        quantization_config = None
+        if self.cfgs.bnb_cfgs and self.cfgs.bnb_cfgs.use_bnb:
+            from transformers import BitsAndBytesConfig
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=dtype,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+            )
+            print("Note: Loading model in 4-bit (QLoRA) mode.")
+
         from transformers.integrations.deepspeed import HfDeepSpeedConfig
         if self.ds_train_cfgs is not None and self.ds_train_cfgs['zero_optimization']['stage'] == 3:
             self.dstchf = HfDeepSpeedConfig(self.ds_train_cfgs)
@@ -150,13 +162,18 @@ class SuperviseTrainer(SupervisedtextTrainer):
                 torch_dtype=dtype,
                 trust_remote_code=self.cfgs.model_cfgs.trust_remote_code,
                 low_cpu_mem_usage=True,
+                quantization_config=quantization_config,
             )
         finally:
             torch.linspace = _original_linspace
             _mu.PreTrainedModel._check_and_adjust_attn_implementation = _original_check_attn
 
         if self.cfgs.lora_cfgs and self.cfgs.lora_cfgs.use_lora:
-            from peft import get_peft_model, LoraConfig
+            from peft import get_peft_model, LoraConfig, prepare_model_for_kbit_training
+            
+            if quantization_config is not None:
+                self.model = prepare_model_for_kbit_training(self.model)
+
             lora_config = LoraConfig(
                 r=self.cfgs.lora_cfgs.r,
                 lora_alpha=self.cfgs.lora_cfgs.lora_alpha,
