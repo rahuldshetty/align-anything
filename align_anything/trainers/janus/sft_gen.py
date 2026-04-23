@@ -31,6 +31,7 @@ from align_anything.utils.multi_process import get_current_device
 from align_anything.utils.tools import (
     custom_cfgs_to_dict,
     dict_to_namedtuple,
+    get_optimizer_grouped_parameters,
     read_cfgs,
     seed_everything,
     update_dict,
@@ -159,12 +160,72 @@ class SuperviseTrainer(SupervisedtextTrainer):
             self.lora_enabled = True
 
         if self.ds_train_cfgs is None or self.ds_train_cfgs['zero_optimization']['stage'] != 3:
-            self.model = self.model.to(get_current_device())
+            self.model = self.model.to(dtype=dtype, device=get_current_device())
+        
+        # Enable gradient checkpointing for LoRA
+        if self.cfgs.train_cfgs.gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
 
         self.processor = VLChatProcessor.from_pretrained(
             self.cfgs.model_cfgs.model_name_or_path,
         )
         self.tokenizer = self.processor.tokenizer
+
+    def init_deepspeed_engines(self) -> None:
+        """Initialize DeepSpeed engines with memory optimizations for LoRA."""
+        # Only pass trainable parameters to the optimizer to avoid DeepSpeed creating
+        # master weights for the entire 1.3B model.
+        trainable_params = get_optimizer_grouped_parameters(
+            self.model,
+            self.cfgs.train_cfgs.weight_decay,
+        )
+        
+        # Check if we should offload to CPU
+        offload_optimizer = False
+        if self.ds_train_cfgs is not None:
+            offload_optimizer = (
+                self.ds_train_cfgs.get('zero_optimization', {})
+                .get('offload_optimizer', {})
+                .get('device') == 'cpu'
+            )
+
+        if offload_optimizer:
+            from deepspeed.ops.adam import DeepSpeedCPUAdam
+            optimizer = DeepSpeedCPUAdam(
+                trainable_params,
+                lr=self.cfgs.train_cfgs.learning_rate,
+                betas=self.cfgs.train_cfgs.adam_betas,
+            )
+        else:
+            from deepspeed.ops.adam import FusedAdam
+            optimizer = FusedAdam(
+                trainable_params,
+                lr=self.cfgs.train_cfgs.learning_rate,
+                betas=self.cfgs.train_cfgs.adam_betas,
+            )
+
+        # Initialize DeepSpeed
+        num_update_steps_per_epoch = (
+            len(self.train_dataloader) + self.cfgs.train_cfgs.gradient_accumulation_steps - 1
+        ) // self.cfgs.train_cfgs.gradient_accumulation_steps
+        total_training_steps = self.cfgs.train_cfgs.epochs * num_update_steps_per_epoch
+        num_warmup_steps = int(self.cfgs.train_cfgs.lr_warmup_ratio * total_training_steps)
+        
+        from transformers import get_scheduler
+        lr_scheduler = get_scheduler(
+            name=self.cfgs.train_cfgs.lr_scheduler_type,
+            optimizer=optimizer,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=total_training_steps,
+        )
+
+        self.model, self.optimizer, _, self.lr_scheduler = deepspeed.initialize(
+            model=self.model,
+            optimizer=optimizer,
+            config=self.ds_train_cfgs,
+            lr_scheduler=lr_scheduler,
+            dist_init_required=True,
+        )
 
     def loss(self, sft_batch: SupervisedBatch) -> dict[str, torch.Tensor]:
         """Loss function for supervised finetuning."""
