@@ -111,8 +111,8 @@ class SuperviseTrainer(SupervisedtextTrainer):
             pixel_values: torch.FloatTensor = None,
             images_seq_mask: torch.BoolTensor = None,
             images_emb_mask: torch.BoolTensor = None,
-            attention_mask: torch.Optional[torch.Tensor] = None,
-            labels: torch.Optional[torch.Tensor] = None,
+            attention_mask: torch.Tensor | None = None,
+            labels: torch.Tensor | None = None,
             **kwargs,
         ):
             if pixel_values is not None:
