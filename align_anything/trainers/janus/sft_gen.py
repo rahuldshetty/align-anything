@@ -160,7 +160,16 @@ class SuperviseTrainer(SupervisedtextTrainer):
             self.lora_enabled = True
 
         if self.ds_train_cfgs is None or self.ds_train_cfgs['zero_optimization']['stage'] != 3:
+            # Force everything to the target dtype and move to device
             self.model = self.model.to(dtype=dtype, device=get_current_device())
+            if dtype == torch.float16:
+                self.model.half()
+            elif dtype == torch.bfloat16:
+                self.model.bfloat16()
+            
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache()
         
         # Enable gradient checkpointing for LoRA
         if self.cfgs.train_cfgs.gradient_checkpointing:
@@ -231,6 +240,7 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
         self.model, self.optimizer, _, self.lr_scheduler = deepspeed.initialize(
             model=self.model,
+            model_parameters=[p for p in self.model.parameters() if p.requires_grad],
             optimizer=optimizer,
             config=self.ds_train_cfgs,
             lr_scheduler=lr_scheduler,
