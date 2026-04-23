@@ -249,9 +249,30 @@ def main():
     # get custom configs from command line
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     _, unparsed_args = parser.parse_known_args()
-    keys = [k[2:] for k in unparsed_args[0::2]]
-    values = list(unparsed_args[1::2])
-    unparsed_args = dict(zip(keys, values))
+    
+    # Robustly parse unknown arguments to handle both --key value and --key=value formats
+    new_unparsed_args = {}
+    i = 0
+    while i < len(unparsed_args):
+        arg = unparsed_args[i]
+        if arg.startswith('--'):
+            if '=' in arg:
+                k, v = arg[2:].split('=', 1)
+                new_unparsed_args[k] = v
+                i += 1
+            else:
+                k = arg[2:]
+                if i + 1 < len(unparsed_args) and not unparsed_args[i+1].startswith('--'):
+                    v = unparsed_args[i+1]
+                    new_unparsed_args[k] = v
+                    i += 2
+                else:
+                    new_unparsed_args[k] = True
+                    i += 1
+        else:
+            i += 1
+    unparsed_args = new_unparsed_args
+
     for k, v in unparsed_args.items():
         dict_cfgs = update_dict(dict_cfgs, custom_cfgs_to_dict(k, v))
 
