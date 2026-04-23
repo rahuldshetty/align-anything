@@ -120,6 +120,20 @@ class SuperviseTrainer(SupervisedtextTrainer):
             torch.linspace = _original_linspace
             _mu.PreTrainedModel._check_and_adjust_attn_implementation = _original_check_attn
 
+        if self.cfgs.lora_cfgs and self.cfgs.lora_cfgs.use_lora:
+            from peft import get_peft_model, LoraConfig
+            lora_config = LoraConfig(
+                r=self.cfgs.lora_cfgs.r,
+                lora_alpha=self.cfgs.lora_cfgs.lora_alpha,
+                target_modules=self.cfgs.lora_cfgs.target_modules,
+                lora_dropout=self.cfgs.lora_cfgs.lora_dropout,
+                bias="none",
+                task_type="CAUSAL_LM",
+            )
+            self.model = get_peft_model(self.model, lora_config)
+            self.model.print_trainable_parameters()
+            self.lora_enabled = True
+
         if self.ds_train_cfgs is None or self.ds_train_cfgs['zero_optimization']['stage'] != 3:
             self.model = self.model.to(get_current_device())
 
