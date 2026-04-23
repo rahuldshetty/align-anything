@@ -251,8 +251,11 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
     def loss(self, sft_batch: SupervisedBatch) -> dict[str, torch.Tensor]:
         """Loss function for supervised finetuning."""
-        print("sft_batch", sft_batch)
-        outputs = self.model.forward(**sft_batch)
+        forward_kwargs = {
+            k: v for k, v in sft_batch.items()
+            if k in ['input_ids', 'labels', 'attention_mask', 'pixel_values', 'images_seq_mask', 'images_emb_mask']
+        }
+        outputs = self.model(**forward_kwargs)
         return {
             'loss': outputs.loss,
         }
