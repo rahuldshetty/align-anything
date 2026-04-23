@@ -104,6 +104,36 @@ class SuperviseTrainer(SupervisedtextTrainer):
                 lambda self: {k: None for k in (getattr(self, '_tied_weights_keys', None) or [])}
             )
 
+        # Patch 4 — MultiModalityCausalLM missing forward method
+        def _forward(
+            self_inner,
+            input_ids: torch.LongTensor = None,
+            pixel_values: torch.FloatTensor = None,
+            images_seq_mask: torch.BoolTensor = None,
+            images_emb_mask: torch.BoolTensor = None,
+            attention_mask: torch.Optional[torch.Tensor] = None,
+            labels: torch.Optional[torch.Tensor] = None,
+            **kwargs,
+        ):
+            if pixel_values is not None:
+                inputs_embeds = self_inner.prepare_inputs_embeds(
+                    input_ids=input_ids,
+                    pixel_values=pixel_values,
+                    images_seq_mask=images_seq_mask,
+                    images_emb_mask=images_emb_mask,
+                )
+            else:
+                inputs_embeds = self_inner.language_model.get_input_embeddings()(input_ids)
+                
+            return self_inner.language_model(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                labels=labels,
+                **kwargs,
+            )
+        
+        MultiModalityCausalLM.forward = _forward
+
         from transformers.integrations.deepspeed import HfDeepSpeedConfig
         if self.ds_train_cfgs is not None and self.ds_train_cfgs['zero_optimization']['stage'] == 3:
             self.dstchf = HfDeepSpeedConfig(self.ds_train_cfgs)
