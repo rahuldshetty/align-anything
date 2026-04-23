@@ -143,13 +143,19 @@ class SuperviseTrainer(SupervisedtextTrainer):
                     param.requires_grad = False
 
             trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-            print(f"Total trainable parameters: {trainable_params / 1e6:.2f}M")
+            total_params = sum(p.numel() for p in self.model.parameters())
+            print(f"--- Parameter Report ---")
+            print(f"Total parameters: {total_params / 1e6:.2f}M")
+            print(f"Trainable parameters: {trainable_params / 1e6:.2f}M")
+            print(f"Percentage trainable: {100 * trainable_params / total_params:.2f}%")
+            print(f"------------------------")
+            
             if trainable_params == 0:
                 print("WARNING: No trainable parameters found! Check your target_modules.")
             
             import gc
             gc.collect()
-            self.model.print_trainable_parameters()
+            torch.cuda.empty_cache()
             self.lora_enabled = True
 
         if self.ds_train_cfgs is None or self.ds_train_cfgs['zero_optimization']['stage'] != 3:
