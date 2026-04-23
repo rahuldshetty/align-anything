@@ -156,6 +156,10 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
         torch.linspace = _cpu_linspace
         _mu.PreTrainedModel._check_and_adjust_attn_implementation = _eager_fallback_check
+        from align_anything.utils.multi_process import is_main_process
+        if not is_main_process():
+            torch.distributed.barrier()
+
         try:
             self.model = MultiModalityCausalLM.from_pretrained(
                 self.cfgs.model_cfgs.model_name_or_path,
@@ -167,6 +171,9 @@ class SuperviseTrainer(SupervisedtextTrainer):
         finally:
             torch.linspace = _original_linspace
             _mu.PreTrainedModel._check_and_adjust_attn_implementation = _original_check_attn
+        
+        if is_main_process():
+            torch.distributed.barrier()
 
         if self.cfgs.lora_cfgs and self.cfgs.lora_cfgs.use_lora:
             from peft import get_peft_model, LoraConfig, prepare_model_for_kbit_training
