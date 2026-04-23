@@ -131,6 +131,9 @@ class SuperviseTrainer(SupervisedtextTrainer):
                 task_type="CAUSAL_LM",
             )
             self.model = get_peft_model(self.model, lora_config)
+            for name, param in self.model.named_parameters():
+                if 'lora' not in name:
+                    param.requires_grad = False
             self.model.print_trainable_parameters()
             self.lora_enabled = True
 
