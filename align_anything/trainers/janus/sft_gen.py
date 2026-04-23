@@ -238,10 +238,12 @@ class SuperviseTrainer(SupervisedtextTrainer):
             num_training_steps=total_training_steps,
         )
 
+        # Initialize DeepSpeed
+        # Using ZeRO Stage 2 allows better memory partitioning
         self.model, self.optimizer, _, self.lr_scheduler = deepspeed.initialize(
             model=self.model,
-            model_parameters=[p for p in self.model.parameters() if p.requires_grad],
             optimizer=optimizer,
+            model_parameters=[p for p in self.model.parameters() if p.requires_grad],
             config=self.ds_train_cfgs,
             lr_scheduler=lr_scheduler,
             dist_init_required=True,
@@ -265,6 +267,15 @@ def main():
     # read default configs from the yaml file
     task = os.path.join('janus', 'sft_gen')
     dict_cfgs, ds_cfgs = read_cfgs(mode='train', task=task)
+
+    # Force ZeRO Stage 2 if Stage 0 is requested, as Stage 0 has memory allocation issues with Janus
+    if ds_cfgs.get('zero_optimization', {}).get('stage') == 0:
+        print("Note: Automatically upgrading Stage 0 to Stage 2 for better memory management with Janus.")
+        ds_cfgs['zero_optimization']['stage'] = 2
+        # Clean up Stage 2 specific settings
+        ds_cfgs['zero_optimization']['contiguous_gradients'] = True
+        ds_cfgs['zero_optimization']['overlap_comm'] = True
+        ds_cfgs['zero_optimization']['reduce_scatter'] = True
 
     # get custom configs from command line
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
